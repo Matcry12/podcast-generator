@@ -1,0 +1,34 @@
+# Podcast Render Server — Python runtime dependencies
+# Install with:  pip install -r requirements.txt
+#
+# System dependency (NOT a pip package):
+#   ffmpeg — required by core.py's to_mp3() for WAV→MP3 conversion
+#   Install on macOS via:  brew install ffmpeg
+
+# ── web server ────────────────────────────────────────────────────────────────
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9        # required by FastAPI for multipart/form-data uploads
+
+# ── ngrok tunnel (optional) ───────────────────────────────────────────────────
+# pyngrok>=7.0.0               # optional: only needed if you want run.py to
+#                              # auto-start ngrok via NGROK_AUTHTOKEN; the
+#                              # default is local-only + manual ngrok.
+
+# ── TTS ───────────────────────────────────────────────────────────────────────
+chatterbox-tts==0.1.7          # public pip package; wraps the Chatterbox model (API verified against 0.1.7 — keep pinned)
+torch>=2.2.0                   # deep learning runtime (MPS on Apple Silicon, CPU fallback)
+torchaudio>=2.2.0              # audio I/O + resampling used by core.py
+soundfile>=0.12.1              # WAV read/write (used by torchaudio backend)
+
+# ── TTS: Kokoro ───────────────────────────────────────────────────────────────
+kokoro>=0.9.4                  # preset-voice TTS (no GPU required for CPU inference)
+                               # System dependency: espeak-ng binary (brew install espeak-ng)
+                               # Requires Python <3.13 — use a Python 3.11 venv
+
+# ── transcription ─────────────────────────────────────────────────────────────
+openai-whisper>=20231117       # Whisper speech-to-text; import as `whisper`
+
+# ── audio encoding ────────────────────────────────────────────────────────────
+# ffmpeg-python is NOT listed — core.py shells out to the ffmpeg binary directly.
+# Make sure the `ffmpeg` binary is on PATH (see system dependency note above).

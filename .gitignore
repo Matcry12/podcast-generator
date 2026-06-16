@@ -1,0 +1,22 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Local OMC / editor state
+.omc/
+
+# Render artifacts (generated at runtime, never committed)
+*.mp3
+*.transcript.json
+out.mp3
+
+# Build artifacts
+dist/
+review/
+
+# macOS
+.DS_Store
+
+# ngrok
+ngrok_authtoken.txt
