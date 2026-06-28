@@ -32,10 +32,16 @@ import tempfile
 from pathlib import Path
 from typing import Optional
 
+import asyncio
+
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, Response
 
 app = FastAPI(title="Podcast Render Server", version="1.0.0")
+
+# One render at a time — models are singletons; concurrent renders share the same
+# instance and unload() from one would null the model mid-generate in another.
+_render_lock = asyncio.Semaphore(1)
 
 # ── auth ──────────────────────────────────────────────────────────────────────
 
@@ -72,15 +78,26 @@ def _device_str() -> str:
         return "cpu"
 
 
-def _models_loaded() -> bool:
-    """True if any heavy model is already in memory."""
+def _backend_status() -> dict:
+    """Return load state for every registered backend."""
     try:
-        from podcast.backends.backend_chatterbox import ChatterboxBackend
-        from podcast.backends.registry import _INSTANCES
-        cb = _INSTANCES.get("chatterbox")
-        return cb is not None and getattr(cb, "_model", None) is not None
+        from podcast.backends.registry import _INSTANCES, list_backends
+        status = {}
+        for name in list_backends():
+            be = _INSTANCES.get(name)
+            if be is None:
+                status[name] = "registered"
+            else:
+                # check whichever attr the backend uses for its model
+                loaded = (
+                    getattr(be, "_model", None) is not None
+                    or getattr(be, "_pipeline", None) is not None
+                    or getattr(be, "_tts", None) is not None
+                )
+                status[name] = "loaded" if loaded else "idle"
+        return status
     except Exception:  # noqa: BLE001
-        return False
+        return {}
 
 
 def _script_text_from_json(script_json: dict) -> str:
@@ -97,7 +114,8 @@ async def health() -> JSONResponse:
     return JSONResponse({
         "status": "ok",
         "device": _device_str(),
-        "models_loaded": _models_loaded(),
+        "render_busy": _render_lock.locked(),
+        "backends": _backend_status(),
     })
 
 
@@ -225,16 +243,17 @@ async def render(
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(status_code=400, detail={"error": str(exc), "turn": None})
 
-        try:
-            synthesize_podcast(
-                script_obj,
-                mp3_path,
-                backend=backend,
-                voice_map=voice_map,
-                global_opts=parsed_backend_opts,
-            )
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail={"error": str(exc), "turn": None})
+        async with _render_lock:
+            try:
+                synthesize_podcast(
+                    script_obj,
+                    mp3_path,
+                    backend=backend,
+                    voice_map=voice_map,
+                    global_opts=parsed_backend_opts,
+                )
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail={"error": str(exc), "turn": None})
 
         mp3_bytes = mp3_path.read_bytes()
         # custom_wav lives inside td and is removed when the context manager exits
