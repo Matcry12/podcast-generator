@@ -256,7 +256,10 @@ async def render(
 
         async with _render_lock:
             try:
-                synthesize_podcast(
+                # Run in a thread so the event loop stays responsive during renders
+                # (health checks, queued requests). asyncio.to_thread requires py3.9+.
+                await asyncio.to_thread(
+                    synthesize_podcast,
                     script_obj,
                     mp3_path,
                     backend=backend,
