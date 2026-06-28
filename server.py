@@ -43,6 +43,9 @@ app = FastAPI(title="Podcast Render Server", version="1.0.0")
 # instance and unload() from one would null the model mid-generate in another.
 _render_lock = asyncio.Semaphore(1)
 
+# Last error per backend — cleared on success, set on failure, exposed via /health.
+_last_errors: dict[str, str] = {}
+
 # ── auth ──────────────────────────────────────────────────────────────────────
 
 def _get_token() -> str | None:
@@ -111,11 +114,19 @@ def _script_text_from_json(script_json: dict) -> str:
 
 @app.get("/health")
 async def health() -> JSONResponse:
+    backend_status = _backend_status()
+    # Annotate any backend that has a recorded error
+    for name, err in _last_errors.items():
+        if name in backend_status:
+            backend_status[name] = {"state": backend_status[name], "last_error": err}
+        else:
+            backend_status[name] = {"state": "unknown", "last_error": err}
+
     return JSONResponse({
         "status": "ok",
         "device": _device_str(),
         "render_busy": _render_lock.locked(),
-        "backends": _backend_status(),
+        "backends": backend_status,
     })
 
 
@@ -252,8 +263,13 @@ async def render(
                     voice_map=voice_map,
                     global_opts=parsed_backend_opts,
                 )
+                _last_errors.pop(backend, None)  # clear on success
             except ValueError as exc:
+                _last_errors[backend] = str(exc)
                 raise HTTPException(status_code=400, detail={"error": str(exc), "turn": None})
+            except Exception as exc:  # noqa: BLE001
+                _last_errors[backend] = f"{type(exc).__name__}: {exc}"
+                raise HTTPException(status_code=500, detail={"error": str(exc), "turn": None})
 
         mp3_bytes = mp3_path.read_bytes()
         # custom_wav lives inside td and is removed when the context manager exits
