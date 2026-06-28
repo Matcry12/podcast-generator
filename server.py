@@ -108,8 +108,9 @@ async def render(
     request: Request,
     script: str = Form(..., description="script.json text (PRD shape)"),
     voice: Optional[UploadFile] = File(default=None, description="Custom .wav reference clip (optional, chatterbox only)"),
-    voice_name: Optional[str] = Form(default=None, description="Kokoro preset voice name, e.g. 'af_heart' (optional, kokoro only)"),
+    voice_name: Optional[str] = Form(default=None, description="Kokoro/VieNeu preset voice name (optional)"),
     backend: str = Form(default="chatterbox", description="TTS backend name; use 'dummy' for smoke tests"),
+    backend_opts: Optional[str] = Form(default=None, description="JSON dict of backend-specific render params, e.g. '{\"num_step\":16}' (omnivoice)"),
 ) -> Response:
     """Render a script.json (PRD shape) to an MP3 and return the bytes.
 
@@ -178,9 +179,35 @@ async def render(
                 voice_map = {"narrator": voice_name}
             # else: None → backend default "af_heart"
 
+        elif backend == "vieneu":
+            if voice is not None and voice.filename:
+                suffix = Path(voice.filename).suffix or ".wav"
+                custom_wav = td_path / f"vi_ref{suffix}"
+                custom_wav.write_bytes(await voice.read())
+                voice_map = {"narrator": str(custom_wav)}
+            elif voice_name:
+                voice_map = {"narrator": voice_name}
+
+        elif backend == "omnivoice":
+            if voice is not None and voice.filename:
+                suffix = Path(voice.filename).suffix or ".wav"
+                custom_wav = td_path / f"ov_ref{suffix}"
+                custom_wav.write_bytes(await voice.read())
+                voice_map = {"narrator": str(custom_wav)}
+
         else:
             # dummy (or any future backend): no voice customisation.
             pass
+
+        # Parse optional backend_opts JSON (e.g. num_step, guidance_scale for omnivoice)
+        parsed_backend_opts: dict | None = None
+        if backend_opts:
+            try:
+                parsed_backend_opts = json.loads(backend_opts)
+                if not isinstance(parsed_backend_opts, dict):
+                    raise ValueError("backend_opts must be a JSON object")
+            except Exception as exc:  # noqa: BLE001
+                raise HTTPException(status_code=400, detail={"error": f"Invalid backend_opts JSON: {exc}", "turn": None})
 
         script_path.write_text(json.dumps(body), encoding="utf-8")
 
@@ -204,6 +231,7 @@ async def render(
                 mp3_path,
                 backend=backend,
                 voice_map=voice_map,
+                global_opts=parsed_backend_opts,
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail={"error": str(exc), "turn": None})

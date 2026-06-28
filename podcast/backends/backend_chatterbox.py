@@ -182,6 +182,24 @@ class ChatterboxBackend(TTSBackend):
         """
         self._ensure_loaded()
 
+    def unload(self) -> None:
+        """Free model RAM after render."""
+        import gc
+        with self._lock:
+            if self._model is not None:
+                del self._model
+                self._model = None
+                self._device = ""
+                gc.collect()
+                try:
+                    import torch
+                    if torch.backends.mps.is_available():
+                        torch.mps.empty_cache()
+                    elif torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                except Exception:
+                    pass
+
     def _ensure_loaded(self) -> None:
         """Load the ChatterboxTTS model if not already loaded (thread-safe).
 

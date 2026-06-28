@@ -224,6 +224,7 @@ def synthesize_podcast(
     gap_sec: float = 0.2,
     fade_ms: float = 50.0,
     on_turn: Callable[[int, int, Turn], None] | None = None,
+    global_opts: dict | None = None,
 ) -> PodcastResult:
     """Synthesize a full podcast and write it to *output_mp3*.
 
@@ -283,27 +284,31 @@ def synthesize_podcast(
     segments: list[torch.Tensor] = []
     n = len(turns)
 
-    with tempfile.TemporaryDirectory() as td:
-        for i, turn in enumerate(turns):
-            if on_turn:
-                on_turn(i, n, turn)
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            for i, turn in enumerate(turns):
+                if on_turn:
+                    on_turn(i, n, turn)
 
-            voice = be.resolve_voice(turn.speaker, effective_voice_map)
-            opts = be.filter_opts(turn.opts)
-            wav = be.synthesize(turn.text, voice=voice, **opts)
+                voice = be.resolve_voice(turn.speaker, effective_voice_map)
+                merged = {**(global_opts or {}), **turn.opts}
+                opts = be.filter_opts(merged)
+                wav = be.synthesize(turn.text, voice=voice, **opts)
 
-            wav = _resample(wav, sr, sr)   # no-op; placeholder if sr diverges
-            wav = _to_mono_2d(wav)
-            wav = _apply_fade(wav, sr, fade_ms)
-            segments.append(wav)
+                wav = _resample(wav, sr, sr)   # no-op; placeholder if sr diverges
+                wav = _to_mono_2d(wav)
+                wav = _apply_fade(wav, sr, fade_ms)
+                segments.append(wav)
 
-            if i < n - 1:
-                segments.append(silence)
+                if i < n - 1:
+                    segments.append(silence)
 
-        full = torch.cat(segments, dim=-1)
-        wav_out = Path(td) / "full.wav"
-        ta.save(str(wav_out), full, sr)
-        to_mp3(wav_out, output_mp3)
+            full = torch.cat(segments, dim=-1)
+            wav_out = Path(td) / "full.wav"
+            ta.save(str(wav_out), full, sr)
+            to_mp3(wav_out, output_mp3)
+    finally:
+        be.unload()  # free model RAM immediately; audio already written to disk
 
     duration = full.shape[-1] / sr
     return PodcastResult(

@@ -34,6 +34,9 @@ class TTSBackend(ABC):
     def load(self) -> None:
         """Lazy-load model / heavy deps.  Idempotent — safe to call multiple times."""
 
+    def unload(self) -> None:
+        """Release model memory.  Called by core.py after each render.  Default no-op."""
+
     # --- synthesis -----------------------------------------------------------
 
     @abstractmethod

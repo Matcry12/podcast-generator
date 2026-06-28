@@ -129,6 +129,15 @@ class KokoroBackend(TTSBackend):
         """
         self._ensure_loaded()
 
+    def unload(self) -> None:
+        """Free model RAM after render."""
+        import gc
+        with self._lock:
+            if self._pipeline is not None:
+                del self._pipeline
+                self._pipeline = None
+                gc.collect()
+
     def _ensure_loaded(self) -> None:
         """Load the KPipeline if not already loaded (thread-safe)."""
         if self._pipeline is not None:

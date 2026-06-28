@@ -264,13 +264,65 @@ except Exception as e:
     failed_engines.append("kokoro")
     print(f"     ❌  Kokoro FAILED: {e}", file=sys.stderr, flush=True)
 
+# ── VieNeu real mini-render ───────────────────────────────────────────────────
+print("\n  -> VieNeu real-engine test (Vietnamese TTS) ...", flush=True)
+try:
+    from podcast.core import synthesize_podcast, Script, Turn
+
+    vi_script = Script(
+        turns=[Turn(speaker="narrator", text="Kiểm tra máy chủ tổng hợp giọng nói.")],
+        voice_map={"narrator": ""},
+    )
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
+        vi_out = Path(tmp.name)
+    try:
+        result = synthesize_podcast(vi_script, vi_out, backend="vieneu")
+        size = vi_out.stat().st_size
+        if size == 0:
+            raise RuntimeError("Output file is empty")
+        print(f"     ✅  VieNeu OK — {result.turns} turn(s), {size:,} bytes", flush=True)
+    finally:
+        try:
+            vi_out.unlink()
+        except Exception:
+            pass
+except Exception as e:
+    failed_engines.append("vieneu")
+    print(f"     ❌  VieNeu FAILED: {e}", file=sys.stderr, flush=True)
+
+# ── OmniVoice real mini-render ────────────────────────────────────────────────
+print("\n  -> OmniVoice real-engine test (multilingual voice cloning) ...", flush=True)
+try:
+    from podcast.core import synthesize_podcast, Script, Turn
+
+    ov_script = Script(
+        turns=[Turn(speaker="narrator", text="Kiểm tra máy chủ nhân bản giọng nói.")],
+        voice_map={"narrator": ""},
+    )
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
+        ov_out = Path(tmp.name)
+    try:
+        result = synthesize_podcast(ov_script, ov_out, backend="omnivoice")
+        size = ov_out.stat().st_size
+        if size == 0:
+            raise RuntimeError("Output file is empty")
+        print(f"     ✅  OmniVoice OK — {result.turns} turn(s), {size:,} bytes", flush=True)
+    finally:
+        try:
+            ov_out.unlink()
+        except Exception:
+            pass
+except Exception as e:
+    failed_engines.append("omnivoice")
+    print(f"     ❌  OmniVoice FAILED: {e}", file=sys.stderr, flush=True)
+
 # ── Summary ───────────────────────────────────────────────────────────────────
 print("", flush=True)
 if not failed_engines:
-    print("Both engines passed. Your first render will be fast.", flush=True)
+    print("All four engines passed. Your first render will be fast.", flush=True)
     sys.exit(0)
 else:
-    working = [e for e in ("chatterbox", "kokoro") if e not in failed_engines]
+    working = [e for e in ("chatterbox", "kokoro", "vieneu", "omnivoice") if e not in failed_engines]
     print(
         f"WARNING: {', '.join(failed_engines)} failed the self-test.\n"
         f"Working engine(s): {', '.join(working) if working else 'NONE'}.\n"

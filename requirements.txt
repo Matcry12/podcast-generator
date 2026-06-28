@@ -26,6 +26,16 @@ kokoro>=0.9.4                  # preset-voice TTS (no GPU required for CPU infer
                                # System dependency: espeak-ng binary (brew install espeak-ng)
                                # Requires Python <3.13 — use a Python 3.11 venv
 
+# ── TTS: VieNeu ──────────────────────────────────────────────────────────────
+vieneu                         # Vietnamese + bilingual EN/VI TTS (v3 Turbo, 48 kHz)
+                               # Default: cpu/onnx — fast on Apple Silicon via ONNX Runtime.
+                               # Override: PODCAST_DEVICE=mps|cuda for GPU inference.
+
+# ── TTS: OmniVoice ───────────────────────────────────────────────────────────
+omnivoice                      # Multilingual zero-shot voice cloning (600+ languages, 24 kHz)
+                               # Supports MPS (Apple Silicon), CUDA, CPU.
+                               # Requires PyTorch >= 2.8.0 for Apple Silicon MPS.
+
 # ── transcription ─────────────────────────────────────────────────────────────
 openai-whisper>=20231117       # Whisper speech-to-text; import as `whisper`
 
