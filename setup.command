@@ -104,6 +104,9 @@ info "Installing Python dependencies from requirements.txt ..."
 if [[ ! -f requirements.txt ]]; then
     fail "requirements.txt not found in $(pwd). Make sure the full podcast-server package is present."
 fi
+# Remove chatterbox if previously installed — it pins transformers==5.2.0 which
+# conflicts with omnivoice (>=5.3.0). Safe to ignore if not present.
+uv pip uninstall chatterbox-tts 2>/dev/null || true
 uv pip install -r requirements.txt
 success "Python dependencies installed."
 
