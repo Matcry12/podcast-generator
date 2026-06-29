@@ -51,22 +51,32 @@ Then double-click normally.
 
 ## Choosing a Voice Engine
 
-The server supports two TTS backends. Pass `--backend` to `call_remote.py` to select one.
+The server supports four TTS backends. Pass `--backend` to `call_remote.py` to select one.
 
-| Engine | Flag | Speed | Voice selection | Best for |
-|---|---|---|---|---|
-| **chatterbox** (default) | `--backend chatterbox` | Slower (GPU) | Clone any voice via `--voice clip.wav` | Custom / branded voices |
-| **kokoro** | `--backend kokoro` | Fast | Preset voices via `--voice-name NAME` | Quick turnaround, no clip needed |
-
-**Chatterbox** clones the speaker from a 6–10 second mono WAV clip you supply.
-Pass `--voice yourclip.wav`; omit it to use the server's built-in narrator.
+| Engine | Flag | Language | Speed | Voice selection | Best for |
+|---|---|---|---|---|---|
+| **kokoro** | `--backend kokoro` | EN | Fast (GPU) | Preset voices via `--voice-name NAME` | English, quick turnaround |
+| **chatterbox** | `--backend chatterbox` | EN | Slower (GPU) | Clone any voice via `--voice clip.wav` | Custom / branded EN voices |
+| **vieneu** | `--backend vieneu` | VI | Fast (**CPU**) | Clone from `--voice clip.wav` | Vietnamese, no GPU required |
+| **omnivoice** | `--backend omnivoice` | 600+ lang | Fast (GPU/MPS) | Clone from `--voice clip.wav` | Vietnamese or multilingual |
 
 **Kokoro** uses built-in preset voices — no clip cloning. Pass `--voice-name` to choose a voice.
 Common presets: `af_heart` (default), `af_sarah`, `am_adam`.
 For the full list see the [Kokoro voice list](https://huggingface.co/hexgrad/Kokoro-82M).
 
-Both engines share one Python 3.11 virtual environment. The `setup.command` script tests
-**both engines** during setup (dual self-test) so any coexistence problem is caught early.
+**Chatterbox** clones the speaker from a 6–10 second mono WAV clip you supply.
+Pass `--voice yourclip.wav`; omit it to use the server's built-in narrator.
+
+**VieNeu** is a Vietnamese-only TTS engine that runs entirely on CPU — no GPU required for
+Vietnamese renders. Pass `--voice yourclip.wav` for voice cloning. See the
+[VieNeu repo](https://github.com/pnnbao97/VieNeu-TTS) for details.
+
+**OmniVoice** (k2-fsa) supports 600+ languages with zero-shot voice cloning, including
+Vietnamese with 8,481 h of native training data. Uses Apple Silicon GPU (MPS) automatically;
+falls back to CPU. Pass `--voice yourclip.wav` to clone a voice; omit for the generic model output.
+
+All engines share one Python 3.11 virtual environment. The `setup.command` script tests
+**all four engines** during setup so any coexistence problem is caught early.
 
 ---
 
@@ -77,7 +87,7 @@ Both engines share one Python 3.11 virtual environment. The `setup.command` scri
 | A Mac with Apple Silicon (M1/M2/M3/M4) | For GPU-accelerated TTS |
 | macOS 13 Ventura or later | Older versions untested |
 | ngrok CLI installed and logged in | For sharing a public URL — install at [ngrok.com/download](https://ngrok.com/download) and run `ngrok authtoken <your-token>` once. You manage this yourself; setup.command does not touch ngrok. |
-| ~8 GB disk space | For Python 3.11 env + Chatterbox + Kokoro + Whisper models |
+| ~14 GB disk space | For Python 3.11 env + all four engines (Chatterbox, Kokoro, VieNeu, OmniVoice) + Whisper models |
 
 ---
 
@@ -93,14 +103,14 @@ This installs everything automatically:
 - **Python 3.11** virtual environment + all dependencies  
   *(3.11 is required: Kokoro needs Python <3.13; Chatterbox is tested on 3.11 — one shared venv for both)*
 - Runs a fast dummy-backend pipeline self-test (ffmpeg + core sanity check)
-- **Pre-downloads Chatterbox + Kokoro + Whisper models, then runs a DUAL real-engine self-test** — both engines render a short test line so any coexistence problem is caught here, not mid-job
+- **Pre-downloads all four engine models + Whisper, then runs a self-test for each** — every engine renders a short test line so any coexistence problem is caught here, not mid-job
 
-**Budget ~10–20 minutes for first-time setup** — the combined model download is several GB.
+**Budget ~20–30 minutes for first-time setup** — the combined model download is ~10 GB.
 Models are downloaded, cached, then released (they do not stay in memory). If you're offline,
 they'll download automatically on the first real render instead.
 
 Each engine's self-test result is shown independently (✅ / ❌) so you know exactly which
-engine is ready to use even if one fails.
+engines are ready even if one fails.
 
 ### Step 2: Double-click `start.command`
 
@@ -145,7 +155,7 @@ and `requests` (`pip install requests`).
 
 ### Render a script to MP3
 
-**Kokoro — fast preset voice (recommended for quick turnaround):**
+**Kokoro — fast English preset voice:**
 
 ```bash
 python call_remote.py render \
@@ -160,7 +170,7 @@ python call_remote.py render \
 Other Kokoro preset voices: `af_heart` (default), `af_sarah`, `am_adam`.  
 For the full list see the [Kokoro voice list](https://huggingface.co/hexgrad/Kokoro-82M).
 
-**Chatterbox — voice cloning from your own WAV clip:**
+**Chatterbox — English voice cloning from a WAV clip:**
 
 ```bash
 python call_remote.py render \
@@ -173,8 +183,33 @@ python call_remote.py render \
 ```
 
 Pass `--voice yourclip.wav` with a clean 6–10 second mono WAV (minimal background noise,
-single speaker). Omit `--voice` to use the server's built-in narrator clip.  
-Omit `--backend` entirely to use the server default (chatterbox).
+single speaker). Omit `--voice` to use the server's built-in narrator clip.
+
+**VieNeu — Vietnamese (CPU, no GPU required):**
+
+```bash
+python call_remote.py render \
+  --url     https://abc123.ngrok-free.app \
+  --token   eyJh...long-string... \
+  --script  my_episode.json \
+  --backend vieneu \
+  --voice   my_vi_voice_sample.wav \
+  --out     episode.mp3
+```
+
+**OmniVoice — Vietnamese or multilingual (GPU/MPS):**
+
+```bash
+python call_remote.py render \
+  --url     https://abc123.ngrok-free.app \
+  --token   eyJh...long-string... \
+  --script  my_episode.json \
+  --backend omnivoice \
+  --voice   my_voice_sample.wav \
+  --out     episode.mp3
+```
+
+Omit `--voice` to use the generic model output (no cloning).
 
 Output: `episode.mp3` + a confirmation line with the file size.
 
@@ -197,7 +232,22 @@ Output: `transcript.json` containing `{text, segments, overlapPct}`.
 curl -s https://abc123.ngrok-free.app/health | python3 -m json.tool
 ```
 
-Returns: `{"status": "ok", "device": "mps", "models_loaded": true}` (or similar).
+Returns per-backend status with load state and any recent error:
+
+```json
+{
+  "status": "ok",
+  "device": "mps",
+  "backends": {
+    "kokoro":      {"loaded": false},
+    "chatterbox":  {"loaded": false},
+    "vieneu":      {"loaded": false},
+    "omnivoice":   {"loaded": false, "last_error": "..."}
+  }
+}
+```
+
+`last_error` only appears when a backend has previously failed — useful for remote diagnosis.
 
 ### Script format (PRD shape)
 
