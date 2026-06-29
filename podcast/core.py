@@ -183,6 +183,17 @@ def _to_mono_2d(w: "torch.Tensor") -> "torch.Tensor":
     return w
 
 
+def _trim_silence(wav: "torch.Tensor", threshold: float = 0.01) -> "torch.Tensor":
+    """Trim leading/trailing noise-floor artifacts (common in voice-cloning backends)."""
+    energy = wav.abs().squeeze(0)
+    mask = energy > threshold
+    if not mask.any():
+        return wav
+    start = int(mask.nonzero(as_tuple=False)[0].item())
+    end   = int(mask.nonzero(as_tuple=False)[-1].item()) + 1
+    return wav[..., start:end]
+
+
 def _apply_fade(wav: "torch.Tensor", sr: int, fade_ms: float = 50.0) -> "torch.Tensor":
     """Apply a linear fade-in and fade-out to eliminate boundary clicks."""
     import torch
@@ -297,6 +308,7 @@ def synthesize_podcast(
 
                 wav = _resample(wav, sr, sr)   # no-op; placeholder if sr diverges
                 wav = _to_mono_2d(wav)
+                wav = _trim_silence(wav)
                 wav = _apply_fade(wav, sr, fade_ms)
                 segments.append(wav)
 
