@@ -36,6 +36,20 @@ fail()    { echo -e "${RED}❌ $*${NC}"; exit 1; }
 cd "$(dirname "$0")"
 info "Working directory: $(pwd)"
 
+# ── 0b. Auto-update from git ──────────────────────────────────────────────────
+# Pulls latest fixes before any install step so re-running setup.command always
+# uses current code — avoids "already fixed upstream but Mac is on old code" loops.
+if git rev-parse --is-inside-work-tree &>/dev/null; then
+    info "Pulling latest updates..."
+    if git pull --ff-only 2>&1 | grep -q "Already up to date"; then
+        info "Already up to date."
+    else
+        success "Updated to $(git rev-parse --short HEAD)."
+    fi
+else
+    warn "Not a git repo — skipping auto-update. Make sure you have the latest code."
+fi
+
 # ── 1. Homebrew ───────────────────────────────────────────────────────────────
 
 info "Checking for Homebrew..."
