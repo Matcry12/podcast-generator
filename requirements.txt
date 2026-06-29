@@ -16,7 +16,8 @@ python-multipart>=0.0.9        # required by FastAPI for multipart/form-data upl
 #                              # default is local-only + manual ngrok.
 
 # ── TTS ───────────────────────────────────────────────────────────────────────
-chatterbox-tts==0.1.7          # public pip package; wraps the Chatterbox model (API verified against 0.1.7 — keep pinned)
+# chatterbox-tts installed separately via --no-deps in setup.command (pins
+# transformers==5.2.0 which conflicts with omnivoice's >=5.3.0 requirement)
 torch>=2.2.0                   # deep learning runtime (MPS on Apple Silicon, CPU fallback)
 torchaudio>=2.2.0              # audio I/O + resampling used by core.py
 soundfile>=0.12.1              # WAV read/write (used by torchaudio backend)

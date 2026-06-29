@@ -94,8 +94,8 @@ fi
 
 # Python 3.11 is required: Kokoro TTS requires Python <3.13, and Chatterbox is
 # tested and pinned against 3.11. Using one shared venv avoids duplicate
-# torch/transformers installs and lets the dual self-test surface any runtime
-# coexistence problems between the two engines early.
+# torch/transformers installs and lets the self-test surface any runtime
+# coexistence problems between engines early.
 info "Creating Python 3.11 virtual environment in .venv/ ..."
 info "(uv will auto-download Python 3.11 if not already present — first run only)"
 uv venv --python 3.11 .venv
@@ -168,7 +168,7 @@ fi
 # ── 6. Pre-download models + DUAL real-engine self-test ───────────────────────
 
 echo ""
-info "Pre-downloading models + running dual real-engine self-test..."
+info "Pre-downloading models + running engine self-tests (kokoro, vieneu, omnivoice)..."
 echo "    This downloads several GB of model weights (one-time)."
 echo "    Both Chatterbox and Kokoro will each render a short test line so any"
 echo "    runtime coexistence problem is caught NOW — not in the middle of a job."
@@ -205,35 +205,6 @@ try:
     print("     Whisper model ready.", flush=True)
 except Exception as e:
     print(f"     WARN: could not pre-download Whisper: {e}", file=sys.stderr, flush=True)
-
-# ── Chatterbox real mini-render ───────────────────────────────────────────────
-print(f"\n  -> Chatterbox real-engine test (device={device}) ...", flush=True)
-try:
-    from podcast.core import synthesize_podcast, Script, Turn
-
-    cb_script = Script(
-        turns=[Turn(speaker="A", text="Chatterbox engine check.")],
-        voice_map={"A": "narrator"},
-    )
-    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
-        cb_out = Path(tmp.name)
-    try:
-        result = synthesize_podcast(
-            cb_script, cb_out, backend="chatterbox",
-            voice_map={"A": "narrator"},
-        )
-        size = cb_out.stat().st_size
-        if size == 0:
-            raise RuntimeError("Output file is empty")
-        print(f"     ✅  Chatterbox OK — {result.turns} turn(s), {size:,} bytes", flush=True)
-    finally:
-        try:
-            cb_out.unlink()
-        except Exception:
-            pass
-except Exception as e:
-    failed_engines.append("chatterbox")
-    print(f"     ❌  Chatterbox FAILED: {e}", file=sys.stderr, flush=True)
 
 # ── Kokoro real mini-render ───────────────────────────────────────────────────
 print("\n  -> Kokoro real-engine test (voice=af_heart) ...", flush=True)
@@ -319,10 +290,10 @@ except Exception as e:
 # ── Summary ───────────────────────────────────────────────────────────────────
 print("", flush=True)
 if not failed_engines:
-    print("All four engines passed. Your first render will be fast.", flush=True)
+    print("All three engines passed. Your first render will be fast.", flush=True)
     sys.exit(0)
 else:
-    working = [e for e in ("chatterbox", "kokoro", "vieneu", "omnivoice") if e not in failed_engines]
+    working = [e for e in ("kokoro", "vieneu", "omnivoice") if e not in failed_engines]
     print(
         f"WARNING: {', '.join(failed_engines)} failed the self-test.\n"
         f"Working engine(s): {', '.join(working) if working else 'NONE'}.\n"
@@ -335,7 +306,7 @@ PYEOF
 )
 
 if .venv/bin/python - <<< "$DUAL_TEST_SCRIPT"; then
-    success "All models downloaded and both engines verified."
+    success "All models downloaded and all three engines verified."
 else
     EXIT_CODE=$?
     if [[ $EXIT_CODE -eq 2 ]]; then

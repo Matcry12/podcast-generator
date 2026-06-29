@@ -51,21 +51,17 @@ Then double-click normally.
 
 ## Choosing a Voice Engine
 
-The server supports four TTS backends. Pass `--backend` to `call_remote.py` to select one.
+The server supports three TTS backends. Pass `--backend` to `call_remote.py` to select one.
 
 | Engine | Flag | Language | Speed | Voice selection | Best for |
 |---|---|---|---|---|---|
 | **kokoro** | `--backend kokoro` | EN | Fast (GPU) | Preset voices via `--voice-name NAME` | English, quick turnaround |
-| **chatterbox** | `--backend chatterbox` | EN | Slower (GPU) | Clone any voice via `--voice clip.wav` | Custom / branded EN voices |
 | **vieneu** | `--backend vieneu` | VI | Fast (**CPU**) | Clone from `--voice clip.wav` | Vietnamese, no GPU required |
 | **omnivoice** | `--backend omnivoice` | 600+ lang | Fast (GPU/MPS) | Clone from `--voice clip.wav` | Vietnamese or multilingual |
 
 **Kokoro** uses built-in preset voices — no clip cloning. Pass `--voice-name` to choose a voice.
 Common presets: `af_heart` (default), `af_sarah`, `am_adam`.
 For the full list see the [Kokoro voice list](https://huggingface.co/hexgrad/Kokoro-82M).
-
-**Chatterbox** clones the speaker from a 6–10 second mono WAV clip you supply.
-Pass `--voice yourclip.wav`; omit it to use the server's built-in narrator.
 
 **VieNeu** is a Vietnamese-only TTS engine that runs entirely on CPU — no GPU required for
 Vietnamese renders. Pass `--voice yourclip.wav` for voice cloning. See the
@@ -169,21 +165,6 @@ python call_remote.py render \
 
 Other Kokoro preset voices: `af_heart` (default), `af_sarah`, `am_adam`.  
 For the full list see the [Kokoro voice list](https://huggingface.co/hexgrad/Kokoro-82M).
-
-**Chatterbox — English voice cloning from a WAV clip:**
-
-```bash
-python call_remote.py render \
-  --url     https://abc123.ngrok-free.app \
-  --token   eyJh...long-string... \
-  --script  my_episode.json \
-  --backend chatterbox \
-  --voice   my_voice_sample.wav \
-  --out     episode.mp3
-```
-
-Pass `--voice yourclip.wav` with a clean 6–10 second mono WAV (minimal background noise,
-single speaker). Omit `--voice` to use the server's built-in narrator clip.
 
 **VieNeu — Vietnamese (CPU, no GPU required):**
 
