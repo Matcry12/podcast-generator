@@ -254,19 +254,24 @@ async def render(
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(status_code=400, detail={"error": str(exc), "turn": None})
 
+        _render_timeout = int(os.environ.get("RENDER_TIMEOUT", "600"))
         async with _render_lock:
             try:
-                # Run in a thread so the event loop stays responsive during renders
-                # (health checks, queued requests). asyncio.to_thread requires py3.9+.
-                await asyncio.to_thread(
-                    synthesize_podcast,
-                    script_obj,
-                    mp3_path,
-                    backend=backend,
-                    voice_map=voice_map,
-                    global_opts=parsed_backend_opts,
+                await asyncio.wait_for(
+                    asyncio.to_thread(
+                        synthesize_podcast,
+                        script_obj,
+                        mp3_path,
+                        backend=backend,
+                        voice_map=voice_map,
+                        global_opts=parsed_backend_opts,
+                    ),
+                    timeout=_render_timeout,
                 )
                 _last_errors.pop(backend, None)  # clear on success
+            except asyncio.TimeoutError:
+                _last_errors[backend] = f"Render timed out after {_render_timeout}s"
+                raise HTTPException(status_code=504, detail={"error": f"Render timed out after {_render_timeout}s — script may be too long or model too slow.", "turn": None})
             except ValueError as exc:
                 _last_errors[backend] = str(exc)
                 raise HTTPException(status_code=400, detail={"error": str(exc), "turn": None})
