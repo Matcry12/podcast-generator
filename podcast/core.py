@@ -275,7 +275,7 @@ def synthesize_podcast(
 
     # --- synthesize turns ----------------------------------------------------
     import torch
-    import torchaudio as ta
+    import soundfile as sf
 
     output_mp3 = Path(output_mp3)
     output_mp3.parent.mkdir(parents=True, exist_ok=True)
@@ -305,7 +305,7 @@ def synthesize_podcast(
 
             full = torch.cat(segments, dim=-1)
             wav_out = Path(td) / "full.wav"
-            ta.save(str(wav_out), full, sr, backend="soundfile")
+            sf.write(str(wav_out), full.squeeze(0).numpy(), sr)
             to_mp3(wav_out, output_mp3)
     finally:
         be.unload()  # free model RAM immediately; audio already written to disk

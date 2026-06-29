@@ -173,8 +173,8 @@ fi
 echo ""
 info "Pre-downloading models + running engine self-tests (kokoro, vieneu, omnivoice)..."
 echo "    This downloads several GB of model weights (one-time)."
-echo "    Both Chatterbox and Kokoro will each render a short test line so any"
-echo "    runtime coexistence problem is caught NOW — not in the middle of a job."
+echo "    Each engine will render a short test line so any runtime coexistence"
+echo "    problem is caught NOW — not in the middle of a job."
 echo "    This can take several minutes depending on your connection."
 echo ""
 
